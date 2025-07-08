@@ -1,4 +1,12 @@
-myenv/
+# .gitignore
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.sqlite3
 .env
+venv/
+myenv/
+uploads/
+*.joblib
+.DS_Store
