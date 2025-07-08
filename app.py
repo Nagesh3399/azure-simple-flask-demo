@@ -1,24 +1,10 @@
 from flask import Flask, render_template_string, request, redirect, url_for, session
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Required for session management
 
 USERNAME = 'nagesh'
 PASSWORD = 'churn'
-
-
-@app.route('/', methods=['GET', 'POST'])
-def login():
-    error = None
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if username == USERNAME and password == PASSWORD:
-            session['logged_in'] = True 
-            return redirect(url_for('dashboard'))
-        else:
-            error = 'Invalid username or password'
-    return render_template_string(login_template, error=error)
-
 
 login_template = '''
 <!DOCTYPE html> 
@@ -89,13 +75,17 @@ def login():
         username = request.form['username']
         password = request.form['password']
         if username == USERNAME and password == PASSWORD:
-            session['logged_in'] = True 
+            session['logged_in'] = True
             return redirect(url_for('dashboard'))
         else:
             error = 'Invalid username or password'
     return render_template_string(login_template, error=error)
 
-
+@app.route('/dashboard')
+def dashboard():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    return "<h2>Welcome to the Dashboard!</h2>"
 
 if __name__ == "__main__":
-    app.run(debug = True)
+    app.run(debug=True)
