@@ -2,3 +2,4 @@ flask
 pandas
 pyodbc
 python-dotenv
+scikit-learn

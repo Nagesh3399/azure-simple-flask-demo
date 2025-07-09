@@ -272,7 +272,7 @@ def dashboard():
             <a href="/">Logout</a>
         </div>
         <div class="main-content">
-            <h2>Power BI Dashboard</h2>
+            <h2>Churn Analysis</h2>
             <iframe title="codivy dashboard" width="1140" height="541.25" src="https://app.powerbi.com/reportEmbed?reportId=88f21ee6-0be6-4823-a852-74bb1a5a3afa&autoAuth=true&ctid=474565c1-bca4-4295-a2f5-b0c7dbf2591c" frameborder="0" allowFullScreen="true">
             </iframe>
         </div>
