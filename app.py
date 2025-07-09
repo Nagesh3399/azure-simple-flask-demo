@@ -1,5 +1,8 @@
 from flask import Flask, render_template_string, request, redirect, url_for, session
+import os
+from dotenv import load_dotenv
 import pandas as pd
+import pyodbc
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Required for session management
@@ -82,16 +85,46 @@ def login():
             error = 'Invalid username or password'
     return render_template_string(login_template, error=error)
 
+
+
+def fetch_data_from_azure(table_name):
+    server = os.getenv('AZURE_SQL_SERVER')
+    database = os.getenv('AZURE_SQL_DATABASE')
+    username = os.getenv('AZURE_SQL_USERNAME')
+    password = os.getenv('AZURE_SQL_PASSWORD')
+    driver = os.getenv('AZURE_SQL_DRIVER')
+    conn_str = f'''
+        DRIVER={driver};
+        SERVER={server};
+        DATABASE={database};
+        UID={username};
+        PWD={password};
+        Encrypt=yes;
+        TrustServerCertificate=no;
+        Connection Timeout=30;
+    '''
+    try:
+        conn = pyodbc.connect(conn_str)
+        query = f"SELECT * FROM {table_name}"
+        df = pd.read_sql(query, conn)
+        conn.close()
+        return df
+    except Exception as e:
+        print("Azure SQL Error:", e)
+        return pd.DataFrame()
+
+
 @app.route('/data')
 def data_page():
     if not session.get('logged_in'):
         return redirect('/')
-    
+
     try:
-        train_df = pd.read_csv('cleaned_train.csv')
-        test_df = pd.read_csv('cleaned_test.csv')
+        # Fetch from Azure SQL instead of local CSV
+        train_df = fetch_data_from_azure('cleaned_train') 
+        test_df = fetch_data_from_azure('cleaned_test')    
     except Exception as e:
-        return f"<h2 style='color: red;'>Error loading CSV files: {e}</h2>"
+        return f"<h2 style='color: red;'>Error loading data from Azure SQL: {e}</h2>"
 
     train_html = train_df.head(10).to_html(classes='data-table', index=False)
     test_html = test_df.head(10).to_html(classes='data-table', index=False)
