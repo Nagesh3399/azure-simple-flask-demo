@@ -3,6 +3,9 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 import pyodbc
+import pickle
+from werkzeug.utils import secure_filename
+import joblib
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Required for session management
@@ -384,6 +387,161 @@ def models_page():
     </body>
     </html>
     '''
+
+
+
+# Allowed file extensions for upload
+ALLOWED_EXTENSIONS = {'csv'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+dt_pipeline = joblib.load('dt_pipeline.pkl')
+gb_pipeline = joblib.load('gb_pipeline.pkl')
+
+
+test_template = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test - Upload Data and Predict</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 20px;
+        }
+        h2 {
+            color: #00bcd4;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type=file] {
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+        }
+        input[type=submit] {
+            background-color: #00bcd4;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            color: white;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #00bcd4;
+            color: black;
+        }
+        .sidebar {
+            width: 220px;
+            background-color: #1f1f1f;
+            padding: 20px;
+            float: left;
+            height: 100vh;
+        }
+        .sidebar a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        .sidebar a:hover {
+            background-color: #00bcd4;
+            color: black;
+            border-radius: 4px;
+            padding-left: 10px;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Navigation</h2>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/data">Data</a>
+        <a href="/models">Models</a>
+        <a href="/Test">Test</a>
+        <a href="/">Logout</a>
+    </div>
+    <div class="main-content">
+        <h2>Upload Dataset for Prediction</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <input type="submit" value="Predict">
+        </form>
+        {% if predictions %}
+            <h2>Predictions of Decision Tree and Gradient Boosting (first 20 rows)</h2>
+            {{ predictions | safe }}
+        {% endif %}
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>
+'''
+
+
+@app.route('/Test', methods=['GET', 'POST'])
+def test_route():
+    if not session.get('logged_in'):
+        return redirect('/')
+
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return render_template_string(test_template, error="No file part", predictions=None)
+        file = request.files['file']
+        if file.filename == '':
+            return render_template_string(test_template, error="No file selected", predictions=None)
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            try:
+                # Read uploaded CSV into dataframe
+                input_df = pd.read_csv(file)
+
+                # Make sure your preprocessing inside pipeline handles the dataframe as is.
+                # Get predictions from both models
+                dt_preds = dt_pipeline.predict(input_df)
+                gb_preds = gb_pipeline.predict(input_df)
+
+                # Prepare a results DataFrame to show side-by-side predictions
+                results_df = input_df.copy()
+                results_df['DT_Prediction'] = dt_preds
+                results_df['GB_Prediction'] = gb_preds
+
+                # Show only first 20 rows in output HTML table
+                predictions_html = results_df.head(20).to_html(classes='data-table', index=False)
+
+                return render_template_string(test_template, predictions=predictions_html, error=None)
+
+            except Exception as e:
+                return render_template_string(test_template, error=f"Error during prediction: {e}", predictions=None)
+        else:
+            return render_template_string(test_template, error="Invalid file type. Upload CSV only.", predictions=None)
+
+    # GET request just shows upload form
+    return render_template_string(test_template, predictions=None, error=None)
 
 
 if __name__ == "__main__":
